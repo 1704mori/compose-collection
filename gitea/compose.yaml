@@ -1,0 +1,82 @@
+version: '3'
+
+services:
+  gitea:
+    image: 'gitea/gitea:1.21-rootless'
+    container_name: 'gitea'
+    ports:
+      - '3000:3000'
+    volumes:
+      - '/srv/gitea/mapped/data:/data:rw'
+      - '/srv/gitea/mapped/gitea_db:/var/lib/gitea:rw'
+      - '/srv/gitea/mapped/gitea_config:/etc/gitea:rw'
+    user: '1000:1000'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "10"
+    environment:
+      USER_UID: '1000'
+      USER_GID: '1000'
+      APP_NAME: 'git'
+      DEFAULT_UI_LOCATION: 'america/sao_paulo'
+      DISABLE_REGISTRATION: 'true'
+      DISABLE_SSH: 'true'
+      DOMAIN: 'git.example.com'
+      ENABLE_OPENID_SIGNIN: 'false'
+      INSTALL_LOCK: 'true'
+      LOCAL_ROOT_URL: 'http://localhost:3000/'
+      OFFLINE_MODE: 'true'
+      ROOT_URL: 'https://git.example.com'
+      GITEA__actions__ENABLED: 'true'
+    restart: 'unless-stopped'
+    networks:
+      doknet:
+        ipv4_address: 192.168.255.246
+
+  act_runner:
+    restart: always
+    volumes:
+      - /srv/gitea/mapped/act_runner/data:/data
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    environment:
+      GITEA_INSTANCE_URL: 'https://git.example.com'
+      GITEA_RUNNER_REGISTRATION_TOKEN: 'ycdGpvbnmjc0OSuZaZXEL1A9gnDqDY8yXJjt9vdq'
+      GITEA_RUNNER_NAME: 'fujin'
+      GITEA_RUNNER_LABELS: 'ubuntu-latest:docker://node:20-bullseye,ubuntu-22.04:docker://node:20-bullseye,ubuntu-20.04:docker://node:20-bullseye,ubuntu-18.04:docker://node:20-buster,cth-ubuntu-latest:docker://catthehacker/>'
+    container_name: gitea_runner
+    image: gitea/act_runner:nightly
+    depends_on:
+      - gitea
+    networks:
+      doknet:
+        ipv4_address: 192.168.255.249
+
+  drone:
+    image: 'drone/drone:2.22'
+    container_name: 'drone'
+    ports:
+      - '444:444'
+    volumes:
+      - '/srv/drone/data:/data:rw'
+    user: '1001:1001'
+    environment:
+      DRONE_GITEA_SERVER: 'https://git.example.com'
+      DRONE_GITEA_CLIENT_ID: '5538e174-88fb-4d7f-9af6-f12957d1d40e'
+      DRONE_RPC_SECRET: 'katchow'
+      DRONE_GITEA_CLIENT_SECRET: 'gto'
+      DRONE_SERVER_HOST: 'drone.example.com'
+      DRONE_SERVER_PORT: ':444'
+      DRONE_SERVER_PROTO: 'https'
+      DRONE_LOGS_DEBUG: 'false'
+      DRONE_USER_CREATE: 'username:mori,admin:true'
+      DRONE_TLS_AUTOCERT: 'false'
+    restart: 'unless-stopped'
+    networks:
+      doknet:
+        ipv4_address: 192.168.255.247
+        
+networks:
+  doknet:
+    external: true
